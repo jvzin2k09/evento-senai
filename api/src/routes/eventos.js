@@ -24,9 +24,9 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /eventos/:id/inscritos -> lista inscritos do evento
+// GET /eventos/:id/inscritos ou /eventos/:id/participantes -> lista inscritos do evento
 // Esta rota precisa ficar antes de GET /:id
-router.get('/:id/inscritos', async (req, res) => {
+router.get(['/:id/inscritos', '/:id/participantes'], async (req, res) => {
   try {
     const [eventos] = await db.query(
       'SELECT id FROM eventos WHERE id = ?',

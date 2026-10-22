@@ -3,13 +3,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, iniciais } from '@/lib/api';
 import FormParticipante from './FormParticipante';
-import { IconAlert, IconSearch } from './Icons';
+import Modal from './Modal';
+import { IconAlert, IconEdit, IconSearch, IconTrash } from './Icons';
 
 export default function ParticipantesView() {
   const [participantes, setParticipantes] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [busca, setBusca] = useState('');
+  const [participanteEmEdicao, setParticipanteEmEdicao] = useState(null);
 
   useEffect(() => {
     api.listarParticipantes()
@@ -22,7 +24,7 @@ export default function ParticipantesView() {
     const t = busca.trim().toLowerCase();
     if (!t) return participantes;
     return participantes.filter((p) =>
-      [p.nome, p.email, p.turma].some((v) => v.toLowerCase().includes(t))
+      [p.nome, p.email, p.turma].some((v) => v?.toLowerCase().includes(t))
     );
   }, [participantes, busca]);
 
@@ -36,6 +38,13 @@ export default function ParticipantesView() {
     }
   }
 
+  function handleSalvoEdicao(atualizado) {
+    setParticipantes((lista) =>
+      lista.map((p) => (p.id === atualizado.id ? { ...p, ...atualizado } : p))
+    );
+    setParticipanteEmEdicao(null);
+  }
+
   return (
     <>
       <section className="page-head">
@@ -43,7 +52,9 @@ export default function ParticipantesView() {
           <div className="section-title" style={{ marginBottom: 0 }}>
             <span className="eyebrow reveal reveal-1">Participantes</span>
             <h1 className="reveal reveal-2">Cadastro de participantes</h1>
-            <p className="reveal reveal-3">Cadastre-se uma vez e use seu nome para se inscrever em qualquer evento.</p>
+            <p className="reveal reveal-3">
+              Cadastre-se uma vez e use seu nome para se inscrever em qualquer evento.
+            </p>
           </div>
         </div>
       </section>
@@ -53,24 +64,40 @@ export default function ParticipantesView() {
           <div className="reveal reveal-3">
             <div className="toolbar" style={{ marginBottom: 16 }}>
               <div className="list-head" style={{ margin: 0 }}>
-                <h2>Cadastrados <span style={{ marginLeft: 6 }}>{participantes.length}</span></h2>
+                <h2>
+                  Cadastrados <span style={{ marginLeft: 6 }}>{participantes.length}</span>
+                </h2>
               </div>
               <label className="search">
                 <span className="visually-hidden">Buscar participante</span>
                 <IconSearch />
-                <input id="busca-participantes" className="input" type="search" placeholder="Buscar nome, e-mail ou turma"
-                  value={busca} onChange={(e) => setBusca(e.target.value)} />
+                <input
+                  id="busca-participantes"
+                  className="input"
+                  type="search"
+                  placeholder="Buscar nome, e-mail ou turma"
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                />
               </label>
             </div>
 
-            {erro && <div className="alert alert-error" role="alert" style={{ marginBottom: 16 }}><IconAlert /> {erro}</div>}
+            {erro && (
+              <div className="alert alert-error" role="alert" style={{ marginBottom: 16 }}>
+                <IconAlert /> {erro}
+              </div>
+            )}
 
             {carregando ? (
               <div className="skeleton" style={{ height: 320 }} />
             ) : filtrados.length === 0 ? (
               <div className="empty">
                 <strong>Nenhum participante encontrado</strong>
-                <p>{busca ? 'Tente outro termo de busca.' : 'Use o formulário ao lado para fazer o primeiro cadastro.'}</p>
+                <p>
+                  {busca
+                    ? 'Tente outro termo de busca.'
+                    : 'Use o formulário ao lado para fazer o primeiro cadastro.'}
+                </p>
               </div>
             ) : (
               <ul className="list" style={{ listStyle: 'none' }}>
@@ -83,9 +110,26 @@ export default function ParticipantesView() {
                     </div>
                     <div className="list-side">
                       <span className="badge">{p.turma}</span>
-                      <button className="btn-danger-text" onClick={() => excluir(p)} id={`excluir-participante-${p.id}`}>
-                        Excluir
-                      </button>
+                      <div className="row-actions">
+                        <button
+                          type="button"
+                          className="btn-action-icon"
+                          title="Editar participante"
+                          onClick={() => setParticipanteEmEdicao(p)}
+                          id={`editar-participante-${p.id}`}
+                        >
+                          <IconEdit />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-danger-text"
+                          title="Excluir participante"
+                          onClick={() => excluir(p)}
+                          id={`excluir-participante-${p.id}`}
+                        >
+                          <IconTrash />
+                        </button>
+                      </div>
                     </div>
                   </li>
                 ))}
@@ -98,12 +142,31 @@ export default function ParticipantesView() {
             <p>Preencha seus dados para participar dos eventos.</p>
             <FormParticipante
               onCriado={(p) =>
-                setParticipantes((lista) => [...lista, p].sort((a, b) => a.nome.localeCompare(b.nome)))
+                setParticipantes((lista) =>
+                  [...lista, p].sort((a, b) => a.nome.localeCompare(b.nome))
+                )
               }
             />
           </aside>
         </div>
       </div>
+
+      {/* Modal para Edição de Participante */}
+      <Modal
+        aberto={Boolean(participanteEmEdicao)}
+        fechar={() => setParticipanteEmEdicao(null)}
+        titulo="Editar Participante"
+        subtitulo={`Atualize os dados de ${participanteEmEdicao?.nome || ''}`}
+      >
+        {participanteEmEdicao && (
+          <FormParticipante
+            key={participanteEmEdicao.id}
+            participanteInicial={participanteEmEdicao}
+            onSalvo={handleSalvoEdicao}
+            onCancelar={() => setParticipanteEmEdicao(null)}
+          />
+        )}
+      </Modal>
     </>
   );
 }

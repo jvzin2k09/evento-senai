@@ -1,20 +1,27 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, formatarData, formatarDataCurta, formatarHora, iniciais } from '@/lib/api';
 import FormInscricao from './FormInscricao';
+import FormEvento from './FormEvento';
+import Modal from './Modal';
 import { statusVagas } from './EventoCard';
-import { IconAlert, IconArrowLeft } from './Icons';
+import { IconAlert, IconArrowLeft, IconEdit, IconTrash } from './Icons';
 
 export default function EventoDetalhe() {
   const { id } = useParams();
+  const router = useRouter();
+
   const [evento, setEvento] = useState(null);
   const [inscritos, setInscritos] = useState([]);
   const [participantes, setParticipantes] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
+
+  const [modalEditarAberto, setModalEditarAberto] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
 
   const recarregarEvento = useCallback(async () => {
     const [ev, ins] = await Promise.all([api.buscarEvento(id), api.listarInscritos(id)]);
@@ -30,13 +37,41 @@ export default function EventoDetalhe() {
 
   const inscritosIds = useMemo(() => new Set(inscritos.map((i) => i.id)), [inscritos]);
 
+  async function handleExcluirEvento() {
+    if (
+      !confirm(
+        `Tem certeza que deseja excluir o evento "${evento.titulo}"?\nTodas as inscrições associadas também serão removidas.`
+      )
+    ) {
+      return;
+    }
+
+    setExcluindo(true);
+    try {
+      await api.excluirEvento(evento.id);
+      router.push('/');
+    } catch (err) {
+      alert(`Erro ao excluir evento: ${err.message}`);
+      setExcluindo(false);
+    }
+  }
+
+  function handleEventoSalvo() {
+    setModalEditarAberto(false);
+    recarregarEvento();
+  }
+
   if (carregando) return <DetalheSkeleton />;
 
   if (erro || !evento) {
     return (
       <div className="container" style={{ padding: '80px 24px' }}>
-        <Link href="/" className="back"><IconArrowLeft /> Voltar para eventos</Link>
-        <div className="alert alert-error" role="alert"><IconAlert /> {erro || 'Evento não encontrado'}</div>
+        <Link href="/" className="back">
+          <IconArrowLeft /> Voltar para eventos
+        </Link>
+        <div className="alert alert-error" role="alert">
+          <IconAlert /> {erro || 'Evento não encontrado'}
+        </div>
       </div>
     );
   }
@@ -50,7 +85,32 @@ export default function EventoDetalhe() {
     <>
       <section className="page-head">
         <div className="container">
-          <Link href="/" className="back" id="voltar-eventos"><IconArrowLeft /> Voltar para eventos</Link>
+          <div className="page-head-top">
+            <Link href="/" className="back" id="voltar-eventos">
+              <IconArrowLeft /> Voltar para eventos
+            </Link>
+
+            <div className="event-head-actions">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setModalEditarAberto(true)}
+                id="btn-editar-evento"
+              >
+                <IconEdit /> Editar
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm btn-danger-hover"
+                onClick={handleExcluirEvento}
+                disabled={excluindo}
+                id="btn-excluir-evento"
+              >
+                <IconTrash /> {excluindo ? 'Excluindo...' : 'Excluir'}
+              </button>
+            </div>
+          </div>
+
           <div style={{ display: 'flex', gap: 8 }} className="reveal reveal-1">
             <span className="badge badge-red">{evento.categoria}</span>
             {status && <span className={status.className}>{status.label}</span>}
@@ -90,7 +150,9 @@ export default function EventoDetalhe() {
             <div className="block">
               <div className="list-head">
                 <h2>Inscritos</h2>
-                <span>{inscritos.length} {inscritos.length === 1 ? 'pessoa' : 'pessoas'}</span>
+                <span>
+                  {inscritos.length} {inscritos.length === 1 ? 'pessoa' : 'pessoas'}
+                </span>
               </div>
 
               {inscritos.length === 0 ? (
@@ -124,7 +186,10 @@ export default function EventoDetalhe() {
 
             <div className="panel-vagas">
               <div className="vagas-row" style={{ marginBottom: 12 }}>
-                <span className="big">{restantes}<small>/ {total} vagas</small></span>
+                <span className="big">
+                  {restantes}
+                  <small>/ {total} vagas</small>
+                </span>
               </div>
               <div className="progress">
                 <span style={{ width: `${ocupacao}%` }} />
@@ -137,12 +202,29 @@ export default function EventoDetalhe() {
               inscritosIds={inscritosIds}
               onInscrito={recarregarEvento}
               onParticipanteCriado={(p) =>
-                setParticipantes((lista) => [...lista, p].sort((a, b) => a.nome.localeCompare(b.nome)))
+                setParticipantes((lista) =>
+                  [...lista, p].sort((a, b) => a.nome.localeCompare(b.nome))
+                )
               }
             />
           </aside>
         </div>
       </div>
+
+      {/* Modal para Editar Evento */}
+      <Modal
+        aberto={modalEditarAberto}
+        fechar={() => setModalEditarAberto(false)}
+        titulo="Editar Evento"
+        subtitulo={`Altere as informações de "${evento.titulo}"`}
+        larguraMax={580}
+      >
+        <FormEvento
+          eventoInicial={evento}
+          onSalvo={handleEventoSalvo}
+          onCancelar={() => setModalEditarAberto(false)}
+        />
+      </Modal>
     </>
   );
 }

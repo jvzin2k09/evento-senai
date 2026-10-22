@@ -2,10 +2,12 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import EventoCard from './EventoCard';
-import { IconAlert, IconArrowRight, IconSearch } from './Icons';
+import Modal from './Modal';
+import FormEvento from './FormEvento';
+import { IconAlert, IconArrowRight, IconPlus, IconSearch } from './Icons';
 
 export default function HomeView() {
   const [eventos, setEventos] = useState([]);
@@ -13,13 +15,19 @@ export default function HomeView() {
   const [erro, setErro] = useState('');
   const [categoria, setCategoria] = useState('Todos');
   const [busca, setBusca] = useState('');
+  const [modalNovoAberto, setModalNovoAberto] = useState(false);
 
-  useEffect(() => {
-    api.listarEventos()
+  const carregarEventos = useCallback(() => {
+    return api
+      .listarEventos()
       .then(setEventos)
       .catch((e) => setErro(e.message))
       .finally(() => setCarregando(false));
   }, []);
+
+  useEffect(() => {
+    carregarEventos();
+  }, [carregarEventos]);
 
   const categorias = useMemo(
     () => ['Todos', ...new Set(eventos.map((e) => e.categoria))],
@@ -36,6 +44,11 @@ export default function HomeView() {
   }, [eventos, categoria, busca]);
 
   const totalVagas = eventos.reduce((s, e) => s + Math.max(0, Number(e.vagas_restantes)), 0);
+
+  function handleEventoCriado() {
+    setModalNovoAberto(false);
+    carregarEventos();
+  }
 
   return (
     <>
@@ -59,6 +72,14 @@ export default function HomeView() {
               <a href="#eventos" className="btn btn-primary" id="cta-ver-eventos">
                 Ver eventos <IconArrowRight />
               </a>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setModalNovoAberto(true)}
+                id="cta-criar-evento"
+              >
+                <IconPlus /> Novo evento
+              </button>
               <Link href="/participantes" className="btn btn-ghost" id="cta-cadastro">
                 Fazer cadastro
               </Link>
@@ -85,12 +106,22 @@ export default function HomeView() {
       {/* ---------- Lista de eventos ---------- */}
       <section className="section" id="eventos" aria-labelledby="eventos-titulo">
         <div className="container">
-          <div className="section-title">
-            <span className="eyebrow">Próximos eventos</span>
-            <h2 id="eventos-titulo">Encontre seu próximo evento</h2>
+          <div className="section-head-with-action">
+            <div className="section-title" style={{ marginBottom: 0 }}>
+              <span className="eyebrow">Próximos eventos</span>
+              <h2 id="eventos-titulo">Encontre seu próximo evento</h2>
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setModalNovoAberto(true)}
+              id="btn-criar-evento-section"
+            >
+              <IconPlus /> Criar evento
+            </button>
           </div>
 
-          <div className="toolbar">
+          <div className="toolbar" style={{ marginTop: 32 }}>
             <div className="chips" role="tablist" aria-label="Filtrar por categoria">
               {categorias.map((c) => (
                 <button
@@ -121,15 +152,27 @@ export default function HomeView() {
           </div>
 
           {erro ? (
-            <div className="alert alert-error" role="alert"><IconAlert /> {erro}</div>
+            <div className="alert alert-error" role="alert">
+              <IconAlert /> {erro}
+            </div>
           ) : carregando ? (
             <div className="grid-eventos">
-              {[0, 1, 2].map((i) => <div key={i} className="skeleton" style={{ height: 360 }} />)}
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="skeleton" style={{ height: 360 }} />
+              ))}
             </div>
           ) : filtrados.length === 0 ? (
             <div className="empty">
               <strong>Nenhum evento encontrado</strong>
-              <p>Tente outra categoria ou termo de busca.</p>
+              <p>Tente outra categoria ou crie um novo evento agora mesmo.</p>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ marginTop: 16 }}
+                onClick={() => setModalNovoAberto(true)}
+              >
+                <IconPlus /> Criar primeiro evento
+              </button>
             </div>
           ) : (
             <div className="grid-eventos">
@@ -140,6 +183,20 @@ export default function HomeView() {
           )}
         </div>
       </section>
+
+      {/* Modal para Criação de Evento */}
+      <Modal
+        aberto={modalNovoAberto}
+        fechar={() => setModalNovoAberto(false)}
+        titulo="Cadastrar Novo Evento"
+        subtitulo="Preencha os detalhes para publicar uma palestra, oficina ou workshop."
+        larguraMax={580}
+      >
+        <FormEvento
+          onSalvo={handleEventoCriado}
+          onCancelar={() => setModalNovoAberto(false)}
+        />
+      </Modal>
     </>
   );
 }

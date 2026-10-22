@@ -1,5 +1,7 @@
 -- Criar e selecionar a base de dados
-CREATE DATABASE IF NOT EXISTS eventosenai;
+CREATE DATABASE IF NOT EXISTS eventosenai
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
 USE eventosenai;
 
 -- 1. Tabela: categorias

@@ -26,16 +26,30 @@ async function request(path, options = {}) {
   return data;
 }
 
+export const CATEGORIAS_SENAI = [
+  { id: 1, nome: 'Palestra' },
+  { id: 2, nome: 'Oficina' },
+  { id: 3, nome: 'Workshop' },
+];
+
 export const api = {
   // Eventos
   listarEventos: () => request('/eventos'),
   buscarEvento: (id) => request(`/eventos/${id}`),
   listarInscritos: (id) => request(`/eventos/${id}/inscritos`),
+  criarEvento: (dados) =>
+    request('/eventos', { method: 'POST', body: JSON.stringify(dados) }),
+  atualizarEvento: (id, dados) =>
+    request(`/eventos/${id}`, { method: 'PUT', body: JSON.stringify(dados) }),
+  excluirEvento: (id) => request(`/eventos/${id}`, { method: 'DELETE' }),
 
   // Participantes
   listarParticipantes: () => request('/participantes'),
+  buscarParticipante: (id) => request(`/participantes/${id}`),
   criarParticipante: (dados) =>
     request('/participantes', { method: 'POST', body: JSON.stringify(dados) }),
+  atualizarParticipante: (id, dados) =>
+    request(`/participantes/${id}`, { method: 'PUT', body: JSON.stringify(dados) }),
   excluirParticipante: (id) => request(`/participantes/${id}`, { method: 'DELETE' }),
 
   // Inscrições
@@ -51,16 +65,24 @@ export const api = {
 // ---------- Helpers de formatação ----------
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
+export function seguraData(valor) {
+  if (!valor) return new Date();
+  if (valor instanceof Date) return valor;
+  const str = String(valor).trim().replace(' ', 'T');
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? new Date(valor) : d;
+}
+
 export function partesData(valor) {
-  const d = new Date(valor);
+  const d = seguraData(valor);
   return {
     dia: String(d.getDate()).padStart(2, '0'),
-    mes: MESES[d.getMonth()],
+    mes: MESES[d.getMonth()] || '',
   };
 }
 
 export function formatarData(valor) {
-  return new Date(valor).toLocaleDateString('pt-BR', {
+  return seguraData(valor).toLocaleDateString('pt-BR', {
     weekday: 'long',
     day: '2-digit',
     month: 'long',
@@ -69,17 +91,39 @@ export function formatarData(valor) {
 }
 
 export function formatarHora(valor) {
-  return new Date(valor).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return seguraData(valor).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
 export function formatarDataCurta(valor) {
-  return new Date(valor).toLocaleString('pt-BR', {
+  return seguraData(valor).toLocaleString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+export function formatarParaInputDatetime(valor) {
+  if (!valor) return '';
+  const d = seguraData(valor);
+  const pad = (n) => String(n).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  const mm = pad(d.getMonth() + 1);
+  const dd = pad(d.getDate());
+  const hh = pad(d.getHours());
+  const min = pad(d.getMinutes());
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+}
+
+export function converterInputParaApiDatetime(valorInput) {
+  if (!valorInput) return '';
+  const partes = valorInput.split('T');
+  if (partes.length === 2) {
+    const hora = partes[1].length === 5 ? `${partes[1]}:00` : partes[1];
+    return `${partes[0]} ${hora}`;
+  }
+  return valorInput;
 }
 
 export function iniciais(nome = '') {
